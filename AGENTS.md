@@ -2,7 +2,7 @@
 
 ## Mission
 
-No-ID Lab supports **Team No ID**'s investigation for the Tech Impact Lab / Foo Law Lab partnership with the Colorado and Connecticut state attorneys general. The lab surveys age signals, minors' engagement mechanisms, and parental-control configurations across major apps to help assess whether current statutory definitions are sufficient.
+No-ID Lab supports **Team No ID**'s investigation for the Tech Impact Lab / Foo Law Lab. The lab surveys age signals, minors' engagement mechanisms, and parental-control configurations across major apps to help assess whether current statutory definitions are sufficient.
 
 ## Evidence-first workflow
 

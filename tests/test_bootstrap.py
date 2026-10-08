@@ -33,8 +33,6 @@ def test_repository_context_documents_exist():
     assert "No-ID Lab" in agents
     assert "AGENTS.md" in claude
     assert "No-ID Lab" in readme
-    assert "Colorado" in readme
-    assert "Connecticut" in readme
 
 
 def test_gitignore_excludes_local_evidence_artifacts():

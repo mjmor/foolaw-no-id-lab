@@ -1,6 +1,6 @@
 # No-ID Lab
 
-No-ID Lab is the investigation repository for **Team No ID** in the Tech Impact Lab / Foo Law Lab. The project partners with the Colorado and Connecticut state attorneys general to study age signals, minors' engagement mechanisms, and parental-control configurations across apps.
+No-ID Lab is the investigation repository for **Team No ID** in the Tech Impact Lab / Foo Law Lab. The project studies age signals, minors' engagement mechanisms, and parental-control configurations across apps.
 
 ## Current state
 

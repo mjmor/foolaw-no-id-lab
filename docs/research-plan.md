@@ -2,7 +2,7 @@
 
 ## Goal
 
-Survey age signals, kids' engagement mechanisms, and parental-control configurations across major apps to help Colorado and Connecticut attorneys general determine whether current statutory definitions adequately cover engagement signals intended to keep minors on a platform.
+Survey age signals, kids' engagement mechanisms, and parental-control configurations across major apps to help determine whether current statutory definitions adequately cover engagement signals intended to keep minors on a platform.
 
 ## Research questions
 
