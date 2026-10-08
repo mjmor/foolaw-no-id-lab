@@ -114,3 +114,7 @@
 - [ ] Inspect the staged diff.
 - [ ] Commit with: `Bootstrap No-ID Lab investigation repository`
 - [ ] Confirm the repository is clean after the commit.
+
+## Follow-up plans
+
+- Android emulator lab: `docs/superpowers/plans/2026-10-07-android-emulator-lab.md` (operator guide: `docs/android-emulator-lab.md`)

@@ -6,7 +6,15 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "pytest>=8.3",
+  "pyyaml>=6.0",
 ]
+
+[project.scripts]
+no-id-lab-android = "no_id_lab.android.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8,<0.13"]
+build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
@@ -15,4 +23,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not integration'"
+markers = [
+  "integration: requires the installed Android SDK and boots a real emulator; run with `uv run pytest -m integration`",
+]

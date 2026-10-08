@@ -1,0 +1,53 @@
+# Declarative configuration for the No-ID Lab Android emulator.
+# Consumed by src/no_id_lab/android/config.py. Change values here, then rerun
+# scripts/setup_macos.sh to converge the SDK and AVD to this configuration.
+
+api_level: 35
+
+system_image:
+  # google_apis | google_apis_playstore | default
+  tag: google_apis
+  # auto selects arm64-v8a on Apple Silicon and x86_64 on Intel.
+  architecture: auto
+
+device_profile: pixel_7
+avd_name: no-id-lab-api35
+headless: false
+
+sdk:
+  # project: SDK lives under <lab_home>/sdk inside this repository (gitignored).
+  # env: reuse an existing SDK at $ANDROID_HOME (or $ANDROID_SDK_ROOT).
+  path_policy: project
+  # Lab state root, relative to the repository root. Override with
+  # NO_ID_LAB_ANDROID_LAB_HOME to place the SDK, AVDs, and artifacts elsewhere.
+  lab_home: .android-lab
+  # Pinned version of the SDK-hosted command-line tools (sdkmanager/avdmanager).
+  cmdline_tools_version: "23.0"
+  packages:
+    - platform-tools
+    - emulator
+
+avd:
+  sdcard_size: 512M
+  # Written into the AVD's config.ini on every setup run.
+  hardware:
+    hw.ramSize: "4096"
+    disk.dataPartition.size: 8G
+    hw.keyboard: "yes"
+    hw.gpu.enabled: "yes"
+    hw.audioInput: "no"
+
+emulator:
+  console_port: 5554
+  # cold: boot from scratch every time (reproducible). quick: use quick-boot snapshots.
+  boot_mode: cold
+  gpu: auto
+  headless_gpu: swiftshader_indirect
+
+timeouts:
+  boot_seconds: 420
+  stop_seconds: 60
+  poll_interval_seconds: 2
+
+retries:
+  boot_attempts: 2

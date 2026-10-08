@@ -17,9 +17,13 @@ No-ID Lab supports **Team No ID**'s investigation for the Tech Impact Lab / Foo 
 
 - `docs/`: research plan, automation options, evidence schema, and approved design
 - `docs/superpowers/`: design specifications and implementation plans
+- `configs/android/lab.yaml`: declarative Android emulator lab configuration
 - `configs/`: future persona, app, and parental-control profiles
-- `scripts/`: future automation and analysis entry points
-- `tests/`: repository validation tests
+- `scripts/`: Android lab entry points (setup, start, stop, validate); future automation and analysis entry points
+- `src/no_id_lab/android/`: Android SDK, AVD, emulator lifecycle, boot detection, and automation hooks
+- `tests/`: repository validation, unit, and integration tests
+- `Brewfile`: macOS system dependencies
+- `.android-lab/` (gitignored): local Android SDK, AVDs, emulator logs, and validation artifacts
 
 ## Documentation standards
 
@@ -34,8 +38,11 @@ This repository pins Python 3.13.7 in `.python-version` and manages dependencies
 
 ```bash
 uv sync
-uv run pytest
+uv run pytest                  # unit tests
+uv run pytest -m integration   # boots the real Android emulator; run scripts/setup_macos.sh first
 ```
+
+The Android emulator lab is documented in `docs/android-emulator-lab.md`. Extend it with new modules that use `AndroidLab`, `Adb`, and `DeviceTarget` rather than editing the lifecycle modules.
 
 Tests should validate repository structure, required documentation, and future data schemas.
 
