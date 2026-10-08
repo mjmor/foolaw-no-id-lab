@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("doctor", help="check required tools, SDK paths, and the AVD")
-    sub.add_parser("setup", help="install SDK packages, accept licenses, create or update the AVD")
+    sub.add_parser("setup", help="install SDK packages and create or update the AVD")
     sub.add_parser("env", help="print shell exports for the lab's Android SDK (eval \"$(... env)\")")
 
     start = sub.add_parser("start", help="start the emulator and wait for boot")

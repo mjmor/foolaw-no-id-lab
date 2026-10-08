@@ -6,16 +6,13 @@ import pytest
 from conftest import LAB_CONFIG
 from no_id_lab.android.config import ConfigError, load_config
 from no_id_lab.android.paths import LabPaths, build_env, find_java_home
-from no_id_lab.android.sdk import SdkManager, ToolNotFoundError, discover_tools, parse_installed_packages
-
-INSTALLED_OUTPUT = """\
-Installed packages:
-  Path                                        | Version | Description                       | Location
-  -------                                     | ------- | -------                           | -------
-  cmdline-tools;23.0                          | 23.0    | Android SDK Command-line Tools    | cmdline-tools/23.0
-  emulator                                    | 37.2.12 | Android Emulator                  | emulator
-  platform-tools                              | 37.0.1  | Android SDK Platform-Tools        | platform-tools
-"""
+from no_id_lab.android.sdk import (
+    SdkManager,
+    ToolNotFoundError,
+    discover_tools,
+    package_path,
+    parse_installed_packages,
+)
 
 
 @pytest.fixture
@@ -80,7 +77,7 @@ def test_tool_paths_follow_sdk_layout(cfg, tmp_path):
     paths = LabPaths.resolve(cfg, repo_root=tmp_path, environ={})
     sdk = paths.sdk_root
 
-    assert paths.sdkmanager == sdk / "cmdline-tools" / "23.0" / "bin" / "sdkmanager"
+    assert paths.android_cli == sdk / "cmdline-tools" / "23.0" / "bin" / "android"
     assert paths.avdmanager == sdk / "cmdline-tools" / "23.0" / "bin" / "avdmanager"
     assert paths.adb == sdk / "platform-tools" / "adb"
     assert paths.emulator == sdk / "emulator" / "emulator"
@@ -103,7 +100,7 @@ def test_build_env_points_android_tooling_at_lab_paths(cfg, tmp_path):
     assert path_entries[:4] == [
         str(paths.sdk_root / "platform-tools"),
         str(paths.sdk_root / "emulator"),
-        str(paths.sdkmanager.parent),
+        str(paths.android_cli.parent),
         str(java_home / "bin"),
     ]
     assert path_entries[-1] == "/usr/bin"
@@ -135,7 +132,7 @@ def test_discover_tools_reports_present_and_missing(cfg, tmp_path):
 
     assert tools["adb"] == paths.adb
     assert tools["emulator"] == paths.emulator
-    assert tools["sdkmanager"] is None
+    assert tools["android"] is None
     assert tools["avdmanager"] is None
     assert tools["java"] is None
 
@@ -145,79 +142,95 @@ Installed packages:
   cmdline-tools/23.0                                     23.0.0      Android SDK Command-line Tools
   emulator                                               37.2.12     Android Emulator
   platform-tools                                         37.0.1      Android SDK Platform-Tools
-  system-images/android-35/google_apis/arm64-v8a         9.0.0       Google APIs ARM 64 v8a System Image
 """
 
 
-def test_parse_installed_packages():
-    assert parse_installed_packages(INSTALLED_OUTPUT) == {"cmdline-tools;23.0", "emulator", "platform-tools"}
+def test_parse_installed_packages_from_android_cli_listing():
+    output = ANDROID_CLI_INSTALLED_OUTPUT + (
+        "  system-images/android-35/google_apis_playstore/arm64-v8a   9.0.0   Google Play ARM 64 v8a System Image\n"
+    )
 
-
-def test_parse_installed_packages_from_android_cli_format():
-    assert parse_installed_packages(ANDROID_CLI_INSTALLED_OUTPUT) == {
-        "cmdline-tools;23.0",
+    assert parse_installed_packages(output) == {
+        "cmdline-tools/23.0",
         "emulator",
         "platform-tools",
-        "system-images;android-35;google_apis;arm64-v8a",
+        "system-images/android-35/google_apis_playstore/arm64-v8a",
     }
 
 
-def test_bootstrap_sdkmanager_prefers_project_copy(cfg, tmp_path, runner):
+def test_package_paths_are_normalised_to_android_cli_form():
+    assert package_path("system-images;android-35;google_apis_playstore;arm64-v8a") == (
+        "system-images/android-35/google_apis_playstore/arm64-v8a"
+    )
+    assert package_path("platform-tools") == "platform-tools"
+
+
+def test_android_cli_prefers_project_copy(cfg, tmp_path, runner):
     paths = LabPaths.resolve(cfg, repo_root=tmp_path, environ={})
-    make_executable(paths.sdkmanager)
+    make_executable(paths.android_cli)
 
-    sdk = SdkManager(paths, runner, env={}, which=lambda name: "/opt/homebrew/bin/sdkmanager")
+    sdk = SdkManager(paths, runner, env={}, which=lambda name: "/opt/homebrew/bin/android")
 
-    assert sdk.sdkmanager() == paths.sdkmanager
+    assert sdk.android_cli() == paths.android_cli
 
 
-def test_bootstrap_sdkmanager_falls_back_to_path(cfg, tmp_path, runner):
+def test_android_cli_falls_back_to_homebrew_bootstrap_on_path(cfg, tmp_path, runner):
     paths = LabPaths.resolve(cfg, repo_root=tmp_path, environ={})
+    looked_up = []
 
-    sdk = SdkManager(paths, runner, env={}, which=lambda name: "/opt/homebrew/bin/sdkmanager")
+    sdk = SdkManager(paths, runner, env={}, which=lambda name: looked_up.append(name) or "/opt/homebrew/bin/android")
 
-    assert sdk.sdkmanager() == Path("/opt/homebrew/bin/sdkmanager")
+    assert sdk.android_cli() == Path("/opt/homebrew/bin/android")
+    assert looked_up == ["android"]
 
 
-def test_bootstrap_sdkmanager_missing_explains_how_to_install(cfg, tmp_path, runner):
+def test_android_cli_missing_explains_how_to_install(cfg, tmp_path, runner):
     paths = LabPaths.resolve(cfg, repo_root=tmp_path, environ={})
     sdk = SdkManager(paths, runner, env={}, which=lambda name: None)
 
     with pytest.raises(ToolNotFoundError, match="brew bundle"):
-        sdk.sdkmanager()
+        sdk.android_cli()
 
 
-def test_accept_licenses_answers_yes_noninteractively(cfg, tmp_path, runner):
+def test_android_cli_calls_disable_metrics_and_pin_sdk_root(cfg, tmp_path, runner):
     paths = LabPaths.resolve(cfg, repo_root=tmp_path, environ={})
-    sdk = SdkManager(paths, runner, env={"X": "1"}, which=lambda name: "/bin/sdkmanager")
+    runner.on("sdk list", ANDROID_CLI_INSTALLED_OUTPUT)
+    sdk = SdkManager(paths, runner, env={"X": "1"}, which=lambda name: "/bin/android")
 
-    sdk.accept_licenses()
+    sdk.installed_packages()
 
     call = runner.calls[-1]
-    assert call["args"] == ("/bin/sdkmanager", f"--sdk_root={paths.sdk_root}", "--licenses")
-    assert call["input"].startswith("y\ny\n")
+    assert call["args"] == ("/bin/android", "--no-metrics", f"--sdk={paths.sdk_root}", "sdk", "list")
     assert call["env"] == {"X": "1"}
 
 
-def test_ensure_packages_installs_only_missing(cfg, tmp_path, runner):
+def test_ensure_packages_installs_only_missing_with_closed_stdin(cfg, tmp_path, runner):
     paths = LabPaths.resolve(cfg, repo_root=tmp_path, environ={})
-    runner.on("--list_installed", INSTALLED_OUTPUT)
-    sdk = SdkManager(paths, runner, env={}, which=lambda name: "/bin/sdkmanager")
+    runner.on("sdk list", ANDROID_CLI_INSTALLED_OUTPUT)
+    sdk = SdkManager(paths, runner, env={}, which=lambda name: "/bin/android")
     wanted = cfg.required_packages("arm64")
 
     installed = sdk.ensure_packages(wanted)
 
-    assert installed == ["system-images;android-35;google_apis;arm64-v8a"]
-    install_calls = [line for line in runner.lines() if "--install" in line]
-    assert install_calls == [
-        f"/bin/sdkmanager --sdk_root={paths.sdk_root} --install system-images;android-35;google_apis;arm64-v8a"
+    assert installed == ["system-images/android-35/google_apis_playstore/arm64-v8a"]
+    install_calls = [call for call in runner.calls if "install" in call["args"]]
+    assert [call["args"] for call in install_calls] == [
+        (
+            "/bin/android",
+            "--no-metrics",
+            f"--sdk={paths.sdk_root}",
+            "sdk",
+            "install",
+            "system-images/android-35/google_apis_playstore/arm64-v8a",
+        )
     ]
+    assert install_calls[0]["input"] == ""
 
 
-def test_ensure_packages_is_noop_when_everything_installed(cfg, tmp_path, runner):
+def test_ensure_packages_accepts_semicolon_package_ids(cfg, tmp_path, runner):
     paths = LabPaths.resolve(cfg, repo_root=tmp_path, environ={})
-    runner.on("--list_installed", INSTALLED_OUTPUT)
-    sdk = SdkManager(paths, runner, env={}, which=lambda name: "/bin/sdkmanager")
+    runner.on("sdk list", ANDROID_CLI_INSTALLED_OUTPUT)
+    sdk = SdkManager(paths, runner, env={}, which=lambda name: "/bin/android")
 
-    assert sdk.ensure_packages(["platform-tools", "emulator"]) == []
-    assert not any("--install" in line for line in runner.lines())
+    assert sdk.ensure_packages(["cmdline-tools;23.0", "platform-tools", "emulator"]) == []
+    assert not any("install" in call["args"] for call in runner.calls)

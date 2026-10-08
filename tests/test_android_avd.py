@@ -23,10 +23,10 @@ def fake_avd(paths: LabPaths, name: str, **config) -> Path:
     avd_dir.mkdir(parents=True, exist_ok=True)
     (paths.avd_home / f"{name}.ini").write_text(f"path={avd_dir}\ntarget=android-35\n")
     base = {
-        "image.sysdir.1": "system-images/android-35/google_apis/arm64-v8a/",
+        "image.sysdir.1": "system-images/android-35/google_apis_playstore/arm64-v8a/",
         "hw.device.name": "pixel_7",
         "abi.type": "arm64-v8a",
-        "tag.id": "google_apis",
+        "tag.id": "google_apis_playstore",
     }
     base.update(config)
     write_ini(avd_dir / "config.ini", base)
@@ -61,9 +61,9 @@ def test_create_invokes_avdmanager_with_pinned_profile(cfg, paths, runner):
         "create",
         "avd",
         "--name",
-        "no-id-lab-api35",
+        "no-id-lab-api35-play",
         "--package",
-        "system-images;android-35;google_apis;arm64-v8a",
+        "system-images;android-35;google_apis_playstore;arm64-v8a",
         "--device",
         "pixel_7",
         "--sdcard",
@@ -103,7 +103,7 @@ def test_ensure_updates_drifted_hardware_without_recreating(cfg, paths, runner):
 
 
 def test_ensure_recreates_avd_when_system_image_changes(cfg, paths, runner):
-    fake_avd(paths, cfg.avd_name, **{"image.sysdir.1": "system-images/android-34/google_apis/arm64-v8a/"})
+    fake_avd(paths, cfg.avd_name, **{"image.sysdir.1": "system-images/android-34/google_apis_playstore/arm64-v8a/"})
     runner.hook("create avd", simulate_avdmanager_create(paths, cfg.avd_name))
     avd = AvdManager(cfg, paths, runner, env={}, machine="arm64")
 

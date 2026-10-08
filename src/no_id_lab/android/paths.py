@@ -58,8 +58,8 @@ class LabPaths:
         return self.sdk_root / "cmdline-tools" / self.cmdline_tools_version / "bin"
 
     @property
-    def sdkmanager(self) -> Path:
-        return self.cmdline_tools_bin / "sdkmanager"
+    def android_cli(self) -> Path:
+        return self.cmdline_tools_bin / "android"
 
     @property
     def avdmanager(self) -> Path:

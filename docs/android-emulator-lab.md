@@ -10,7 +10,7 @@ Everything the lab needs is declared in three places:
 | Python 3.13.7 and Python dependencies | `.python-version`, `pyproject.toml`, `uv.lock` | `uv` |
 | Android API level, system image, device profile, AVD, emulator flags, timeouts | `configs/android/lab.yaml` | `uv run no-id-lab-android setup` |
 
-The SDK, AVD, logs, and validation artifacts are written to `.android-lab/` inside the repository. That directory is gitignored. The lab does not use `~/Library/Android`, `~/.android`, an Android Studio install, or the system Python.
+The SDK, AVD, logs, and validation artifacts are written to `.android-lab/` inside the repository. That directory is gitignored. The lab does not use `~/Library/Android`, an Android Studio install, or the system Python. Android tooling state (AVDs, emulator settings, `android` CLI cache, adb keys) goes to `.android-lab/user-home` through `ANDROID_USER_HOME`. Android tools run *outside* the lab scripts, without that variable, fall back to `~/.android`.
 
 ## 1. Prerequisites
 
@@ -41,9 +41,9 @@ The script is idempotent. Run it again any time, for example after changing `con
 1. Installs any Brewfile dependencies that are missing (`brew bundle`).
 2. Runs `uv sync --locked` to create `.venv` from `uv.lock` with Python 3.13.7.
 3. Runs `uv run no-id-lab-android setup`, which:
-   - Accepts Android SDK licenses without prompting.
-   - Uses `sdkmanager` (the Homebrew copy on the first run, then the SDK's own pinned copy) to install the pinned packages into `.android-lab/sdk`: `cmdline-tools;<version>`, `platform-tools`, `emulator`, and `system-images;android-<api>;<tag>;<abi>`. Packages that are already installed are skipped.
-   - Creates the AVD, or brings an existing one back in line with the config (see section 4).
+   - Uses the `android` CLI (`android sdk install`) to install the pinned packages into `.android-lab/sdk`: `cmdline-tools/<version>`, `platform-tools`, `emulator`, and `system-images/android-<api>/<tag>/<abi>`. The first run uses the Homebrew copy of `android`. Later runs use the SDK's own pinned copy. Packages that are already installed (per `android sdk list`) are skipped. The CLI accepts the SDK licence terms without prompting, and the lab always passes `--no-metrics` so no usage data is sent to Google.
+   - Creates the AVD with `avdmanager`. (`android emulator create` only accepts generic profiles such as `medium_phone` and always picks the newest image, so it cannot express the pinned API level, image, device, and AVD name.)
+   - Brings an existing AVD back in line with the config (see section 4).
    - Ends with `doctor`, which prints every tool path and exits non-zero if anything is missing.
 
 If Homebrew packages are managed some other way, for example on a machine without admin rights, `scripts/setup_macos.sh --skip-brew` skips step 1.
@@ -64,7 +64,7 @@ The lab scripts set their own environment, so you do not need to export anything
 
 A stale `JAVA_HOME` that points at a directory without Java is ignored. So is a deprecated `ANDROID_SDK_HOME`.
 
-To use `adb`, `emulator`, `avdmanager`, or `sdkmanager` directly in your shell with the same settings:
+To use `adb`, `emulator`, `avdmanager`, or `android` directly in your shell with the same settings:
 
 ```bash
 eval "$(uv run no-id-lab-android env)"
@@ -86,10 +86,10 @@ The AVD is defined in `configs/android/lab.yaml`:
 ```yaml
 api_level: 35
 system_image:
-  tag: google_apis          # google_apis | google_apis_playstore | default
+  tag: google_apis_playstore   # google_apis_playstore | google_apis | default
   architecture: auto        # auto | arm64-v8a | x86_64
 device_profile: pixel_7
-avd_name: no-id-lab-api35
+avd_name: no-id-lab-api35-play
 avd:
   hardware:
     hw.ramSize: "4096"
@@ -111,9 +111,11 @@ scripts/setup_macos.sh          # or: uv run no-id-lab-android setup
 
 To check the AVD without changing anything, run `uv run no-id-lab-android doctor`.
 
-The default image is **Google APIs** (`google_apis`), which includes Google Play services but not the Play Store. A later phase that installs apps from Google Play should switch `system_image.tag` to `google_apis_playstore`, preferably with a new `avd_name`, and rerun setup. No code changes are needed.
+The image is the **Google Play** variant (`google_apis_playstore`), which includes the Play Store and Google Play services so apps can be installed from Google Play. `avd.hardware` sets `PlayStore.enabled: "true"`, matching what Android Studio does for Play images. Play images are production builds: `adb root` is not available.
 
-Note that the Google APIs image ships some Google apps as preinstalled system apps, including **YouTube**, which is one of the in-scope apps. This phase never launches, signs into, or automates them. Later phases should record the preinstalled app version (`adb shell dumpsys package com.google.android.youtube | grep versionName`) as part of observation metadata.
+To change the image tag or API level, also change `avd_name`, so the old and new AVDs can coexist. Then rerun setup. No code changes are needed. Setup does not delete old AVDs or images. Remove them with `android emulator remove <name>` and `android sdk remove <package>` (after `eval "$(uv run no-id-lab-android env)"`).
+
+Note that the Google Play image ships some Google apps as preinstalled system apps, including **YouTube**, which is one of the in-scope apps. This phase never launches, signs into, or automates them. Later phases should record the preinstalled app version (`adb shell dumpsys package com.google.android.youtube | grep versionName`) as part of observation metadata.
 
 ## 5. How to start the emulator in normal mode
 
@@ -121,7 +123,7 @@ Note that the Google APIs image ships some Google apps as preinstalled system ap
 scripts/start_android_emulator.sh            # or: --window
 ```
 
-This opens the emulator window and blocks until Android has fully booted. Then it prints `emulator-5554 booted`. The emulator keeps running in the background after the command returns, and its output goes to `.android-lab/logs/emulator-no-id-lab-api35.log`.
+This opens the emulator window and blocks until Android has fully booted. Then it prints `emulator-5554 booted`. The emulator keeps running in the background after the command returns, and its output goes to `.android-lab/logs/emulator-no-id-lab-api35-play.log`.
 
 `emulator.boot_mode: cold` (the default) boots from scratch every time and does not save a snapshot on exit, so each session starts from the same device state. User data, such as test accounts added in later phases, is kept. Set `boot_mode: quick` to use quick-boot snapshots instead.
 
@@ -189,7 +191,7 @@ uv run pytest                    # unit tests; no SDK or emulator required
 uv run pytest -m integration     # real SDK + emulator; requires setup to have run
 ```
 
-Unit tests cover configuration parsing and validation, architecture detection, SDK path policy and environment, tool discovery, `sdkmanager` package diffing and license handling, AVD create, update, and drift detection, emulator command construction, start and stop wiring, boot detection, the validation flow, the Appium capability hook, script wiring, and this document. They use a fake command runner and never touch the real SDK.
+Unit tests cover configuration parsing and validation, architecture detection, SDK path policy and environment, tool discovery, `android sdk` package diffing and invocation, AVD create, update, and drift detection, emulator command construction, start and stop wiring, boot detection, the validation flow, the Appium capability hook, script wiring, and this document. They use a fake command runner and never touch the real SDK.
 
 Integration tests (marker `integration`) check that every tool is discoverable, the SDK paths are configured, the AVD matches the config, and that a headless emulator boots, is listed by `adb devices`, reports the pinned API level, produces a screenshot, and stops. Stop any running lab emulator before you run them.
 
@@ -198,10 +200,10 @@ Integration tests (marker `integration`) check that every tool is discoverable, 
 | Symptom | Fix |
 |---|---|
 | `error: No Java runtime found` | Run `brew bundle --file=Brewfile`. A stale `JAVA_HOME` is ignored automatically. |
-| `sdkmanager not found` | The Homebrew cask `android-commandlinetools` is missing. Rerun `scripts/setup_macos.sh`. |
-| `sdkmanager` prints that it is deprecated in favour of the `android` CLI | Expected with `cmdline-tools` 23.0. `sdkmanager` and `avdmanager` still work. `sdkmanager` now delegates to the Android CLI, whose `--list_installed` format differs from the Homebrew bootstrap copy. `sdk.py` parses both formats, and all calls are isolated in `src/no_id_lab/android/sdk.py` and `avd.py`. |
+| ``The `android` CLI was not found`` | The Homebrew cask `android-commandlinetools` is missing. Rerun `scripts/setup_macos.sh`. |
+| `Downloading Android CLI... Unpacking embedded installation...` on the first call | Normal. The `android` binary unpacks itself into `<ANDROID_USER_HOME>/cli` once. |
 | Validation screenshot is black | The UI was not ready yet. Readiness now waits for a focused window (section 7). If it still happens, check `adb shell dumpsys window displays \| grep mCurrentFocus`. |
-| `Warning: Failed to download any source lists!` or package install failures | Network or proxy problem. `sdkmanager` (Java) does not read `HTTPS_PROXY`. Behind a proxy, set `JAVA_TOOL_OPTIONS="-Dhttps.proxyHost=… -Dhttps.proxyPort=…"`. |
+| `android sdk install` fails to download | Network or proxy problem. The packages come from `dl.google.com`. Run `android -v --sdk="$ANDROID_HOME" sdk install <package>` (after `eval "$(uv run no-id-lab-android env)"`) for details. |
 | `AVD '…' does not exist` | Run `scripts/setup_macos.sh`. |
 | `AVD drift: …` warning on start | `lab.yaml` changed since the AVD was created. Rerun setup to converge. |
 | `… is already running; stop it first` or port conflict | Another emulator is on console port 5554. Stop it, or change `emulator.console_port` (an even number from 5554 to 5682). |
@@ -210,7 +212,7 @@ Integration tests (marker `integration`) check that every tool is discoverable, 
 | Window is black or GPU errors in windowed mode | Set `emulator.gpu: swiftshader_indirect` in `lab.yaml`. |
 | `adb` shows `unauthorized` or `offline` | Run `adb kill-server` (after `eval "$(uv run no-id-lab-android env)"`) and start again. Keys live in `.android-lab/user-home`. |
 | Start over completely | Stop the emulator, `rm -rf .android-lab`, then rerun `scripts/setup_macos.sh`. |
-| Sandbox or "Operation not permitted" errors when run by a coding agent | The emulator, Homebrew, and `sdkmanager` downloads need access outside the repository and the network. Run them outside the agent sandbox. |
+| Sandbox or "Operation not permitted" errors when run by a coding agent | The emulator, Homebrew, and `android sdk` downloads need access outside the repository and the network. Run them outside the agent sandbox. |
 
 ## Code layout and extension points
 
@@ -221,7 +223,7 @@ Integration tests (marker `integration`) check that every tool is discoverable, 
 | `config.py` | Loads and validates `lab.yaml`, resolves the host ABI, and builds SDK package names. |
 | `paths.py` | Lab directory layout, SDK path policy, Java discovery, and the tool environment. |
 | `runner.py` | All subprocess execution and logging. Tests replace it with a fake. |
-| `sdk.py` | Tool discovery, `sdkmanager` bootstrap, licenses, and installing only missing packages. |
+| `sdk.py` | Tool discovery, `android` CLI bootstrap, and installing only missing SDK packages (`android sdk list/install`). |
 | `avd.py` | AVD create, recreate, and update, plus drift validation against the config. |
 | `adb.py` | `adb` wrapper: devices, shell, getprop, screenshot, `emu kill`. |
 | `boot.py` | Boot-state detection and waiting. |

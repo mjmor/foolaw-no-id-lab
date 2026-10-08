@@ -2,7 +2,7 @@
 # Idempotent macOS bootstrap for the No-ID Lab Android emulator lab.
 #   1. Installs Brewfile dependencies (uv, openjdk@21, Android command-line tools).
 #   2. Syncs the pinned Python environment with uv.
-#   3. Installs pinned SDK packages, accepts licenses, and creates/updates the AVD
+#   3. Installs pinned SDK packages with the `android` CLI and creates/updates the AVD
 #      described in configs/android/lab.yaml.
 # Safe to run repeatedly. Usage: scripts/setup_macos.sh [--skip-brew]
 set -euo pipefail
@@ -47,7 +47,7 @@ command -v uv >/dev/null 2>&1 || die "uv not found. Run without --skip-brew or i
 step "Python environment (uv, Python $(cat .python-version))"
 uv sync --locked
 
-step "Android SDK packages, licenses, and AVD (configs/android/lab.yaml)"
+step "Android SDK packages and AVD (configs/android/lab.yaml)"
 uv run no-id-lab-android setup
 
 step "Done"

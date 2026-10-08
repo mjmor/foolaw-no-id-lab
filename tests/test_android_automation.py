@@ -7,7 +7,7 @@ def test_device_target_from_config():
     target = DeviceTarget.from_config(load_config(LAB_CONFIG))
 
     assert target.serial == "emulator-5554"
-    assert target.avd_name == "no-id-lab-api35"
+    assert target.avd_name == "no-id-lab-api35-play"
     assert target.api_level == 35
 
 

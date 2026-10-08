@@ -81,16 +81,18 @@ class LabConfig:
         return resolve_abi(self.architecture, machine)
 
     def system_image_package(self, machine: str | None = None) -> str:
+        """Semicolon form, as avdmanager expects."""
         return f"system-images;android-{self.api_level};{self.image_tag};{self.abi(machine)}"
 
     def system_image_dir(self, machine: str | None = None) -> str:
         return f"system-images/android-{self.api_level}/{self.image_tag}/{self.abi(machine)}/"
 
     def required_packages(self, machine: str | None = None) -> list[str]:
+        """SDK package paths in the `android sdk` CLI's slash-separated form."""
         return [
-            f"cmdline-tools;{self.cmdline_tools_version}",
+            f"cmdline-tools/{self.cmdline_tools_version}",
             *self.sdk_packages,
-            self.system_image_package(machine),
+            self.system_image_package(machine).replace(";", "/"),
         ]
 
     def with_overrides(self, **changes: Any) -> LabConfig:

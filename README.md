@@ -53,7 +53,7 @@ This repository is in its bootstrap phase. It currently contains:
 Requires macOS and [Homebrew](https://brew.sh). Everything else is installed by the setup script. Python comes from `uv` (pinned in `.python-version`), and the Android SDK and AVD live in the gitignored `.android-lab/` directory.
 
 ```bash
-scripts/setup_macos.sh                         # idempotent: Brewfile, uv sync, SDK, licenses, AVD
+scripts/setup_macos.sh                         # idempotent: Brewfile, uv sync, SDK (android CLI), AVD
 scripts/start_android_emulator.sh [--headless] # start and wait for boot
 scripts/validate_android_lab.sh                # boot, verify adb, capture properties + screenshot, stop
 scripts/stop_android_emulator.sh

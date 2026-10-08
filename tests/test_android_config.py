@@ -27,10 +27,10 @@ def test_repository_config_pins_android_profile():
     cfg = load_config(LAB_CONFIG)
 
     assert cfg.api_level == 35
-    assert cfg.image_tag == "google_apis"
+    assert cfg.image_tag == "google_apis_playstore"
     assert cfg.architecture == "auto"
     assert cfg.device_profile == "pixel_7"
-    assert cfg.avd_name == "no-id-lab-api35"
+    assert cfg.avd_name == "no-id-lab-api35-play"
     assert cfg.headless is False
     assert cfg.sdk_path_policy == "project"
     assert cfg.lab_home == ".android-lab"
@@ -61,19 +61,19 @@ def test_resolve_abi_rejects_unknown_host():
 def test_system_image_package_uses_pinned_api_tag_and_abi():
     cfg = load_config(LAB_CONFIG)
 
-    assert cfg.system_image_package("arm64") == "system-images;android-35;google_apis;arm64-v8a"
-    assert cfg.system_image_package("x86_64") == "system-images;android-35;google_apis;x86_64"
+    assert cfg.system_image_package("arm64") == "system-images;android-35;google_apis_playstore;arm64-v8a"
+    assert cfg.system_image_package("x86_64") == "system-images;android-35;google_apis_playstore;x86_64"
 
 
-def test_required_packages_include_tools_and_system_image():
+def test_required_packages_use_android_cli_package_paths():
     cfg = load_config(LAB_CONFIG)
 
     packages = cfg.required_packages("arm64")
 
-    assert packages[0] == "cmdline-tools;23.0"
+    assert packages[0] == "cmdline-tools/23.0"
     assert "platform-tools" in packages
     assert "emulator" in packages
-    assert packages[-1] == "system-images;android-35;google_apis;arm64-v8a"
+    assert packages[-1] == "system-images/android-35/google_apis_playstore/arm64-v8a"
 
 
 def test_hardware_values_are_strings():

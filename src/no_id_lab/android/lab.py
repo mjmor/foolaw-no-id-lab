@@ -95,14 +95,12 @@ class AndroidLab:
         return discover_tools(self.paths, self.java_home)
 
     def setup(self) -> dict[str, object]:
-        """Converge SDK packages, licenses, and the AVD to the config. Safe to rerun."""
+        """Converge SDK packages and the AVD to the config. Safe to rerun."""
         if self.java_home is None:
             raise ToolNotFoundError("No Java runtime found. Run `brew bundle --file=Brewfile` to install openjdk@21.")
         self.paths.sdk_root.mkdir(parents=True, exist_ok=True)
         self.paths.avd_home.mkdir(parents=True, exist_ok=True)
-        self.sdk.accept_licenses()
         installed = self.sdk.ensure_packages(self.config.required_packages(self.machine))
-        self.sdk.accept_licenses()
         avd_state = self.avd.ensure()
         return {"installed_packages": installed, "avd": avd_state}
 

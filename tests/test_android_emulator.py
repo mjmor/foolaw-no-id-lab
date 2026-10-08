@@ -65,7 +65,7 @@ def test_windowed_start_command(cfg, paths):
     assert command == [
         str(paths.emulator),
         "-avd",
-        "no-id-lab-api35",
+        "no-id-lab-api35-play",
         "-port",
         "5554",
         "-gpu",
@@ -77,7 +77,7 @@ def test_windowed_start_command(cfg, paths):
 def test_headless_start_command(cfg, paths):
     command = build_start_command(cfg, paths, headless=True)
 
-    assert command[:5] == [str(paths.emulator), "-avd", "no-id-lab-api35", "-port", "5554"]
+    assert command[:5] == [str(paths.emulator), "-avd", "no-id-lab-api35-play", "-port", "5554"]
     assert {"-no-window", "-no-audio", "-no-boot-anim"} <= set(command)
     assert command[command.index("-gpu") + 1] == "swiftshader_indirect"
 
@@ -124,7 +124,7 @@ def test_start_spawns_emulator_detached_and_records_pid(cfg, paths, runner, adb,
     spawn = runner.spawned[0]
     assert spawn["args"] == tuple(build_start_command(cfg, paths, headless=True))
     assert spawn["env"] == {"E": "1"}
-    assert spawn["log_path"] == paths.logs_dir / "emulator-no-id-lab-api35.log"
+    assert spawn["log_path"] == paths.logs_dir / "emulator-no-id-lab-api35-play.log"
     assert emulator.pid_file.read_text() == "4242"
 
 

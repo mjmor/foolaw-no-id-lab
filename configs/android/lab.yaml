@@ -5,13 +5,14 @@
 api_level: 35
 
 system_image:
-  # google_apis | google_apis_playstore | default
-  tag: google_apis
+  # google_apis_playstore: Google Play Store + Play services (needed to install apps from Google Play).
+  # Other options: google_apis | default
+  tag: google_apis_playstore
   # auto selects arm64-v8a on Apple Silicon and x86_64 on Intel.
   architecture: auto
 
 device_profile: pixel_7
-avd_name: no-id-lab-api35
+avd_name: no-id-lab-api35-play
 headless: false
 
 sdk:
@@ -21,7 +22,7 @@ sdk:
   # Lab state root, relative to the repository root. Override with
   # NO_ID_LAB_ANDROID_LAB_HOME to place the SDK, AVDs, and artifacts elsewhere.
   lab_home: .android-lab
-  # Pinned version of the SDK-hosted command-line tools (sdkmanager/avdmanager).
+  # Pinned version of the SDK-hosted command-line tools (the `android` CLI and avdmanager).
   cmdline_tools_version: "23.0"
   packages:
     - platform-tools
@@ -36,6 +37,7 @@ avd:
     hw.keyboard: "yes"
     hw.gpu.enabled: "yes"
     hw.audioInput: "no"
+    PlayStore.enabled: "true"
 
 emulator:
   console_port: 5554
