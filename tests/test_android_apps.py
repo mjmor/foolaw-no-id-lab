@@ -33,6 +33,7 @@ def test_apps_config_covers_every_in_scope_app():
         "com.kick.mobile",
     }
     assert config.record_seconds > 0
+    assert config.record_fps == 24
     assert config.install_timeout_seconds > 0
     assert config.captures_dir == "captures"
 

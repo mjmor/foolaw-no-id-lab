@@ -39,7 +39,7 @@ class AppsConfig:
     record_seconds: int = 20
     settle_seconds: float = 2
     bit_rate: str = "4M"
-    timestamp_overlay: bool = True
+    record_fps: int = 24
     captures_dir: str = "captures"
 
     def select(self, ids: list[str] | None) -> list[AppSpec]:
@@ -82,7 +82,7 @@ def load_apps_config(path: Path) -> AppsConfig:
         record_seconds=int(recording.get("seconds", 20)),
         settle_seconds=float(recording.get("settle_seconds", 2)),
         bit_rate=str(recording.get("bit_rate", "4M")),
-        timestamp_overlay=bool(recording.get("timestamp_overlay", True)),
+        record_fps=int(recording.get("fps", 24)),
         captures_dir=str(recording.get("captures_dir", "captures")),
     )
 

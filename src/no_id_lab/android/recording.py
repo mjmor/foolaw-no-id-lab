@@ -1,4 +1,8 @@
-"""Record the device screen while launching each in-scope app.
+"""Record the emulator display while launching each in-scope app.
+
+Uses the emulator's host-side recorder (`adb emu screenrecord`), which captures exactly what the
+emulator display shows and writes WebM straight to the host. The in-guest `screenrecord` was
+unreliable on this emulator (all-black or stale frames), and is left for a future physical-device tier.
 
 Each recording gets a manifest whose field names follow docs/evidence-schema.md so later phases
 can turn captures into observation records. Persona, parental-control, and statute fields stay
@@ -10,7 +14,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -26,7 +29,8 @@ from .runner import CommandError
 log = logging.getLogger(__name__)
 
 RecordingStatus = Literal["recorded", "skipped-not-installed", "failed"]
-RECORDER_START_TIMEOUT_SECONDS = 10
+RECORDING_METHOD = "emulator_host_screenrecord"
+FINALIZE_TIMEOUT_SECONDS = 15
 DEVICE_TIME_FORMAT = "+%Y-%m-%dT%H:%M:%S%z"
 
 
@@ -49,14 +53,16 @@ class AppRecorder:
         output_dir: Path,
         machine: str | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self.adb = adb
         self.serial = serial
         self.apps_config = apps_config
         self.lab_config = lab_config
-        self.output_dir = output_dir
+        self.output_dir = output_dir.resolve()
         self.machine = machine
         self.sleep = sleep
+        self.monotonic = monotonic
 
     def record_all(self, apps: list[AppSpec]) -> list[RecordingResult]:
         results = []
@@ -89,47 +95,50 @@ class AppRecorder:
         if not info.installed:
             return RecordingResult(app, "skipped-not-installed", detail="not installed; run scripts/install_android_apps.sh")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        remote = f"/data/local/tmp/no-id-lab-{app.id}.mp4"
-        video = self.output_dir / f"{app.id}.mp4"
+        video = self.output_dir / f"{app.id}.webm"
         close_app(self.adb, self.serial, app.package)
-        errors: list[Exception] = []
-        recorder = threading.Thread(target=self._screenrecord, args=(remote, errors), daemon=True)
         try:
-            recorder.start()
-            self._wait_for_recorder(recorder)
+            started = self.monotonic()
+            reply = self._emu_screenrecord(
+                "start",
+                "--time-limit",
+                str(self.apps_config.record_seconds + 1),
+                "--bit-rate",
+                self.apps_config.bit_rate,
+                "--fps",
+                str(self.apps_config.record_fps),
+                str(video),
+            )
+            if reply.startswith("KO"):
+                return RecordingResult(app, "failed", detail=f"emulator recorder refused to start: {reply}")
             self.sleep(self.apps_config.settle_seconds)
             local_time = self.adb.shell(self.serial, "date", DEVICE_TIME_FORMAT, check=False).stdout.strip()
             launch_app(self.adb, self.serial, app.package)
-            recorder.join(self.apps_config.record_seconds + 60)
-            if errors:
-                return RecordingResult(app, "failed", detail=str(errors[0]))
-            self.adb.run("-s", self.serial, "pull", remote, str(video))
+            self.sleep(max(0.0, self.apps_config.record_seconds - (self.monotonic() - started)))
+            self._emu_screenrecord("stop")
+            if not self._wait_for_file(video):
+                return RecordingResult(app, "failed", detail=f"emulator recorder did not write {video}")
             manifest = self._write_manifest(app, info, video, local_time)
             return RecordingResult(app, "recorded", video=video, manifest=manifest)
         except CommandError as exc:
             return RecordingResult(app, "failed", detail=str(exc))
         finally:
-            self.adb.shell(self.serial, "rm", "-f", remote, check=False)
             close_app(self.adb, self.serial, app.package)
 
-    def _screenrecord(self, remote: str, errors: list[Exception]) -> None:
-        config = self.apps_config
-        args = ["screenrecord", "--time-limit", str(config.record_seconds), "--bit-rate", config.bit_rate]
-        if config.timestamp_overlay:
-            args.append("--bugreport")
-        try:
-            self.adb.run("-s", self.serial, "shell", *args, remote, timeout=config.record_seconds + 30)
-        except CommandError as exc:
-            errors.append(exc)
+    def _emu_screenrecord(self, *args: str) -> str:
+        return self.adb.run("-s", self.serial, "emu", "screenrecord", *args, check=False).stdout.strip()
 
-    def _wait_for_recorder(self, recorder: threading.Thread) -> None:
-        """Launch only once screenrecord is running, so the app's first frames are captured."""
-        waited = 0.0
-        while recorder.is_alive() and waited < RECORDER_START_TIMEOUT_SECONDS:
-            if self.adb.shell(self.serial, "pidof", "screenrecord", check=False).stdout.strip():
-                return
-            self.sleep(0.25)
-            waited += 0.25
+    def _wait_for_file(self, video: Path) -> bool:
+        """The recorder finalizes the WebM asynchronously after stop; wait until its size settles."""
+        waited, last_size = 0.0, -1
+        while waited <= FINALIZE_TIMEOUT_SECONDS:
+            size = video.stat().st_size if video.exists() else -1
+            if size > 0 and size == last_size:
+                return True
+            last_size = size
+            self.sleep(0.5)
+            waited += 0.5
+        return False
 
     def _device(self) -> dict[str, object]:
         return {
@@ -166,10 +175,10 @@ class AppRecorder:
             ),
             "device": self._device(),
             "recording": {
+                "method": RECORDING_METHOD,
                 "seconds": self.apps_config.record_seconds,
-                "settle_seconds": self.apps_config.settle_seconds,
                 "bit_rate": self.apps_config.bit_rate,
-                "timestamp_overlay": self.apps_config.timestamp_overlay,
+                "fps": self.apps_config.record_fps,
             },
         }
         path = video.with_suffix(".json")

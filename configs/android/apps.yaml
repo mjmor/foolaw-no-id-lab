@@ -34,12 +34,13 @@ install:
   poll_interval_seconds: 5
 
 recording:
-  # Length of each app-launch screen recording (screenrecord --time-limit).
+  # Recorded with the emulator's host-side recorder (`adb emu screenrecord`), which captures exactly
+  # what the emulator display shows and writes WebM directly to the host.
+  # Length of each app-launch recording, in seconds.
   seconds: 20
   # Pause between starting the recorder and launching the app, so the launch is captured.
   settle_seconds: 2
   bit_rate: 4M
-  # Burn a device timestamp into each frame (screenrecord --bugreport).
-  timestamp_overlay: true
+  fps: 24
   # Raw captures stay out of Git. Relative to the repository root; override with NO_ID_LAB_CAPTURES_DIR.
   captures_dir: captures

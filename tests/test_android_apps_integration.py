@@ -48,5 +48,5 @@ def test_recording_youtube_launch_produces_video_and_manifest(running_lab, tmp_p
 
     assert result.status == "recorded", result.detail
     assert result.video.stat().st_size > 10_000
-    assert result.video.read_bytes()[4:8] == b"ftyp"
+    assert result.video.read_bytes()[:4] == b"\x1a\x45\xdf\xa3"
     assert json.loads(result.manifest.read_text())["os_version"] == "Android 15"

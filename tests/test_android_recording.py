@@ -9,24 +9,24 @@ from no_id_lab.android.adb import Adb
 from no_id_lab.android.apps import AppSpec, load_apps_config
 from no_id_lab.android.config import load_config
 from no_id_lab.android.recording import AppRecorder
-from no_id_lab.android.runner import CommandError, CommandResult
+from no_id_lab.android.runner import CommandResult
 
 SERIAL = "emulator-5554"
 YOUTUBE = AppSpec(id="youtube", name="YouTube", package="com.google.android.youtube")
 KICK = AppSpec(id="kick", name="Kick", package="com.kick.mobile")
-VIDEO_BYTES = b"\x00\x00\x00\x18ftypmp42"
+VIDEO_BYTES = b"\x1a\x45\xdf\xa3webm"
 
 
 @pytest.fixture
 def recorder(runner, tmp_path):
-    def pull(args):
+    def emulator_writes_video(args):
         Path(args[-1]).write_bytes(VIDEO_BYTES)
 
-    runner.hook(" pull ", pull)
+    runner.hook("emu screenrecord start", emulator_writes_video)
+    runner.on("emu screenrecord", "OK\n")
     runner.on("pm path com.google.android.youtube", "package:/product/app/YouTube/YouTube.apk\n")
     runner.on("dumpsys package com.google.android.youtube", "    versionCode=1545868760\n    versionName=19.17.42\n")
     runner.on("pm path com.kick.mobile", "")
-    runner.on("pidof screenrecord", "4321\n")
     runner.on("date +%Y-%m-%dT%H:%M:%S%z", "2026-10-07T19:05:00-0400\n")
     runner.on("getprop ro.build.version.release", "15\n")
     return AppRecorder(
@@ -40,19 +40,17 @@ def recorder(runner, tmp_path):
     )
 
 
-def test_record_captures_launch_with_screenrecord_and_writes_manifest(recorder, runner, tmp_path):
+def test_record_captures_launch_with_emulator_recorder_and_writes_manifest(recorder, runner, tmp_path):
     result = recorder.record(YOUTUBE)
 
     assert result.status == "recorded"
-    assert result.video == tmp_path / "run" / "youtube.mp4"
+    video = tmp_path / "run" / "youtube.webm"
+    assert result.video == video
     lines = runner.lines()
-    assert (
-        "/adb -s emulator-5554 shell screenrecord --time-limit 20 --bit-rate 4M --bugreport "
-        "/data/local/tmp/no-id-lab-youtube.mp4"
-    ) in lines
-    assert "/adb -s emulator-5554 shell monkey -p com.google.android.youtube -c android.intent.category.LAUNCHER 1" in lines
-    assert f"/adb -s emulator-5554 pull /data/local/tmp/no-id-lab-youtube.mp4 {tmp_path / 'run' / 'youtube.mp4'}" in lines
-    assert "/adb -s emulator-5554 shell rm -f /data/local/tmp/no-id-lab-youtube.mp4" in lines
+    start = f"/adb -s emulator-5554 emu screenrecord start --time-limit 21 --bit-rate 4M --fps 24 {video}"
+    launch = "/adb -s emulator-5554 shell monkey -p com.google.android.youtube -c android.intent.category.LAUNCHER 1"
+    stop = "/adb -s emulator-5554 emu screenrecord stop"
+    assert lines.index(start) < lines.index(launch) < lines.index(stop)
     assert lines.count("/adb -s emulator-5554 shell am force-stop com.google.android.youtube") == 2
 
     manifest = json.loads(result.manifest.read_text())
@@ -63,12 +61,12 @@ def test_record_captures_launch_with_screenrecord_and_writes_manifest(recorder, 
     assert manifest["os_version"] == "Android 15"
     assert manifest["local_time"] == "2026-10-07T19:05:00-0400"
     assert manifest["time_window"] == "evening"
-    assert manifest["evidence_artifact"] == "youtube.mp4"
+    assert manifest["evidence_artifact"] == "youtube.webm"
     assert manifest["sha256"] == hashlib.sha256(VIDEO_BYTES).hexdigest()
     assert manifest["persona"] is None
     assert manifest["statute_hook"] is None
     assert manifest["device"]["avd_name"] == "no-id-lab-api35-play"
-    assert manifest["recording"]["seconds"] == 20
+    assert manifest["recording"] == {"method": "emulator_host_screenrecord", "seconds": 20, "bit_rate": "4M", "fps": 24}
 
 
 def test_record_skips_apps_that_are_not_installed(recorder, runner):
@@ -79,13 +77,12 @@ def test_record_skips_apps_that_are_not_installed(recorder, runner):
 
 
 def test_record_reports_failed_recording_and_still_closes_app(recorder, runner):
-    failure = CommandError(CommandResult(("screenrecord",), 1, "", "Unable to get output buffers"))
-    runner.on("shell screenrecord", failure)
+    runner._responses.insert(0, ("emu screenrecord start", [CommandResult((), 0, "KO: recording already in progress\n", "")]))
 
     result = recorder.record(YOUTUBE)
 
     assert result.status == "failed"
-    assert "Unable to get output buffers" in result.detail
+    assert "recording already in progress" in result.detail
     assert runner.lines()[-1] == "/adb -s emulator-5554 shell input keyevent KEYCODE_HOME"
 
 
