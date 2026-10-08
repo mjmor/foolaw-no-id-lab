@@ -12,6 +12,7 @@ This repository is in its bootstrap phase. It currently contains:
 - Repository validation tests
 - Git repository setup
 - A reproducible Android emulator lab for macOS (see [docs/android-emulator-lab.md](docs/android-emulator-lab.md))
+- Automation that installs the in-scope apps from Google Play and records each app launching (see [docs/android-app-automation.md](docs/android-app-automation.md))
 
 ## Investigation scope
 
@@ -41,10 +42,12 @@ This repository is in its bootstrap phase. It currently contains:
 - `docs/automation-options.md`: local automation assessment
 - `docs/evidence-schema.md`: proposed evidence model
 - `docs/android-emulator-lab.md`: Android emulator lab setup, operation, and troubleshooting
+- `docs/android-app-automation.md`: installing and recording the in-scope apps
 - `docs/superpowers/`: approved design and implementation plan
 - `Brewfile`: macOS system dependencies (uv, openjdk@21, Android command-line tools)
 - `configs/android/lab.yaml`: pinned Android API level, system image, device profile, and AVD
-- `scripts/`: Android lab entry points (setup, start, stop, validate)
+- `configs/android/apps.yaml`: in-scope apps (Play Store package names) and install and recording settings
+- `scripts/`: Android lab entry points (setup, start, stop, validate, install apps, record apps)
 - `src/no_id_lab/android/`: SDK, AVD, emulator lifecycle, boot detection, and automation hooks
 - `tests/`: repository, unit, and integration tests
 
@@ -60,6 +63,17 @@ scripts/stop_android_emulator.sh
 ```
 
 See [docs/android-emulator-lab.md](docs/android-emulator-lab.md) for full instructions and troubleshooting.
+
+## In-scope app automation
+
+After signing in to the emulator's Play Store once, by hand, with the lab's controlled test account:
+
+```bash
+scripts/install_android_apps.sh   # install the in-scope apps from Google Play
+scripts/record_android_apps.sh    # record each app launching; output goes to the gitignored captures/
+```
+
+See [docs/android-app-automation.md](docs/android-app-automation.md).
 
 ## Validate the repository
 
