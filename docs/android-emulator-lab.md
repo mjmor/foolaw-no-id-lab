@@ -232,4 +232,4 @@ Integration tests (marker `integration`) check that every tool is discoverable, 
 | `automation.py` | `DeviceTarget` and UiAutomator2/Appium capabilities for the lab emulator. Adds no Appium dependency yet. |
 | `cli.py` | The `no-id-lab-android` command used by the `scripts/` wrappers. |
 
-Later phases should add app installation and evidence capture as new modules that use `AndroidLab`, `Adb`, and `DeviceTarget`. They should not put that logic into the lifecycle modules. Raw evidence belongs outside Git, as described in the research plan.
+App installation and launch recording are documented in [android-app-automation.md](android-app-automation.md). Later phases should add further evidence capture as new modules that use `AndroidLab`, `Adb`, and `DeviceTarget`. They should not put that logic into the lifecycle modules. Raw evidence belongs outside Git, as described in the research plan.
