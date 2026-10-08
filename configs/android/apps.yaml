@@ -1,0 +1,45 @@
+# In-scope apps for the No-ID Lab investigation (see docs/research-plan.md).
+# Package ids verified against https://play.google.com/store/apps/details?id=<package> on 2026-10-07.
+# Consumed by src/no_id_lab/android/apps.py.
+
+apps:
+  - id: youtube
+    name: YouTube
+    package: com.google.android.youtube
+  - id: youtube-kids
+    name: YouTube Kids
+    package: com.google.android.apps.youtube.kids
+  - id: instagram
+    name: Instagram
+    package: com.instagram.android
+  - id: facebook
+    name: Facebook
+    package: com.facebook.katana
+  - id: messenger
+    name: Messenger
+    package: com.facebook.orca
+  - id: snapchat
+    name: Snapchat
+    package: com.snapchat.android
+  - id: tiktok
+    name: TikTok
+    package: com.zhiliaoapp.musically
+  - id: kick
+    name: Kick
+    package: com.kick.mobile
+
+install:
+  # Per-app limit for a Play Store download and install to finish.
+  timeout_seconds: 900
+  poll_interval_seconds: 5
+
+recording:
+  # Length of each app-launch screen recording (screenrecord --time-limit).
+  seconds: 20
+  # Pause between starting the recorder and launching the app, so the launch is captured.
+  settle_seconds: 2
+  bit_rate: 4M
+  # Burn a device timestamp into each frame (screenrecord --bugreport).
+  timestamp_overlay: true
+  # Raw captures stay out of Git. Relative to the repository root; override with NO_ID_LAB_CAPTURES_DIR.
+  captures_dir: captures
